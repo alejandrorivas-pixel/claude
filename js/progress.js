@@ -1,65 +1,58 @@
-// Sistema de progreso con localStorage
-const STORAGE_KEY = 'magno-tutorial-progress';
-const TOTAL_LESSONS = 10;
+// Progress — tracks lesson completion with localStorage
 
-function getState() {
+const STORAGE_KEY = 'magno_progress';
+
+let completed = new Set();
+
+export function initProgress() {
   try {
     const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : { completed: [] };
-  } catch {
-    return { completed: [] };
-  }
-}
-
-function saveState(state) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    // localStorage not available
-  }
-}
-
-export function markComplete(lessonId) {
-  const state = getState();
-  if (!state.completed.includes(lessonId)) {
-    state.completed.push(lessonId);
-    saveState(state);
-  }
-}
-
-export function isComplete(lessonId) {
-  return getState().completed.includes(lessonId);
-}
-
-export function getProgress() {
-  const state = getState();
-  return {
-    completed: state.completed.length,
-    total: TOTAL_LESSONS,
-    lessons: state.completed
-  };
-}
-
-export function renderProgressBar() {
-  const { completed, total } = getProgress();
-  const filled = Math.round((completed / total) * 10);
-  const empty = 10 - filled;
-  return `[${'#'.repeat(filled)}${'-'.repeat(empty)}] ${completed}/${total}`;
-}
-
-export function updateProgressDisplay() {
-  const display = document.getElementById('progress-display');
-  if (display) {
-    display.textContent = renderProgressBar();
-  }
-}
-
-export function updateSidebarChecks() {
-  const items = document.querySelectorAll('#lesson-list li');
-  items.forEach(item => {
-    const lessonId = parseInt(item.dataset.lesson);
-    if (isComplete(lessonId)) {
-      item.classList.add('completed');
+    if (data) {
+      const arr = JSON.parse(data);
+      completed = new Set(arr);
     }
-  });
+  } catch (e) {
+    completed = new Set();
+  }
+}
+
+export function markComplete(moduleIndex, lessonIndex) {
+  const key = `${moduleIndex}:${lessonIndex}`;
+  completed.add(key);
+  save();
+}
+
+export function isComplete(moduleIndex, lessonIndex) {
+  return completed.has(`${moduleIndex}:${lessonIndex}`);
+}
+
+export function getCompletedCount() {
+  return completed.size;
+}
+
+export function getModuleCompletedCount(moduleIndex, totalLessons) {
+  let count = 0;
+  for (let i = 0; i < totalLessons; i++) {
+    if (completed.has(`${moduleIndex}:${i}`)) count++;
+  }
+  return count;
+}
+
+export function updateProgressUI(totalLessons) {
+  const count = completed.size;
+  const pct = totalLessons > 0 ? (count / totalLessons) * 100 : 0;
+
+  const bar = document.getElementById('progress-bar');
+  const text = document.getElementById('progress-text');
+  const headerLabel = document.getElementById('header-progress');
+
+  if (bar) bar.style.width = `${pct}%`;
+  if (text) text.textContent = `${count} de ${totalLessons} lecciones completadas`;
+  if (headerLabel) headerLabel.textContent = `${count}/${totalLessons}`;
+}
+
+function save() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([...completed]));
+  } catch (e) { /* ignore */ }
 }

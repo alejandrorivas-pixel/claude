@@ -1,213 +1,212 @@
-// Controlador principal de la aplicación
-import { renderLesson, clearTerminal } from './terminal.js';
-import { markComplete, updateProgressDisplay, updateSidebarChecks } from './progress.js';
-import { requestSkip, isAnimating } from './typewriter.js';
+// App — main controller
+import { renderSections, attachQuizHandlers } from './components.js';
+import { initRouter, navigateTo, showLanding, nextLesson, prevLesson, getCurrentState, getTotalLessons, canGoNext, canGoPrev } from './router.js';
+import { initProgress, markComplete, isComplete, getCompletedCount, getModuleCompletedCount, updateProgressUI } from './progress.js';
 
-let currentLesson = 0;
-const TOTAL_LESSONS = 10;
+let modules = [];
 
-// Cargar una lección dinámicamente
-async function loadLesson(id) {
-  const padded = String(id).padStart(2, '0');
-  const names = [
-    'welcome', 'what-is-github', 'repositories', 'commits',
-    'branches', 'pull-requests', 'vibe-coding', 'github-workflow',
-    'supabase', 'ai-models'
-  ];
-  const module = await import(`../content/${padded}-${names[id]}.js`);
-  return module.lesson;
-}
+async function loadModules() {
+  const { default: moduleData } = await import('../content/modules.js');
+  modules = moduleData;
 
-// Navegar a una lección
-async function goToLesson(id) {
-  if (id < 0 || id >= TOTAL_LESSONS) return;
-
-  currentLesson = id;
-
-  // Actualizar sidebar
-  document.querySelectorAll('#lesson-list li').forEach(li => {
-    li.classList.toggle('active', parseInt(li.dataset.lesson) === id);
-  });
-
-  // Cargar y renderizar
-  const lesson = await loadLesson(id);
-  await renderLesson(lesson.sections);
-
-  // Marcar como completada
-  markComplete(id);
-  updateProgressDisplay();
-  updateSidebarChecks();
-}
-
-// Procesar comandos
-function processCommand(cmd) {
-  const command = cmd.trim().toLowerCase();
-
-  switch (command) {
-    case 'next':
-    case 'n':
-      goToLesson(currentLesson + 1);
-      break;
-    case 'prev':
-    case 'p':
-    case 'back':
-      goToLesson(currentLesson - 1);
-      break;
-    case 'menu':
-    case 'm':
-      showMenu();
-      break;
-    case 'help':
-    case 'h':
-      showHelp();
-      break;
-    case 'progress':
-      showProgress();
-      break;
-    default:
-      // Check if it's a lesson number
-      const num = parseInt(command);
-      if (!isNaN(num) && num >= 0 && num < TOTAL_LESSONS) {
-        goToLesson(num);
-      }
-      break;
+  // Dynamically load lesson content for each module
+  const contentFiles = ['../content/github.js', '../content/supabase.js', '../content/ai-models.js'];
+  for (let i = 0; i < contentFiles.length; i++) {
+    const mod = await import(contentFiles[i]);
+    modules[i].lessons = mod.default;
   }
 }
 
-async function showMenu() {
-  const { renderLesson: render } = await import('./terminal.js');
-  clearTerminal();
+function renderLanding() {
+  document.getElementById('landing').classList.remove('hidden');
+  document.getElementById('lesson-view').classList.add('hidden');
 
-  const sections = [
-    { type: 'prompt', text: 'menu' },
-    { type: 'heading', text: 'Lecciones Disponibles' },
-    { type: 'spacer' },
-    { type: 'body-instant', text: '  [0]  Bienvenida' },
-    { type: 'body-instant', text: '  [1]  ¿Qué es GitHub?' },
-    { type: 'body-instant', text: '  [2]  Repositories (Repositorios)' },
-    { type: 'body-instant', text: '  [3]  Commits (Guardar cambios)' },
-    { type: 'body-instant', text: '  [4]  Branches (Ramas)' },
-    { type: 'body-instant', text: '  [5]  Pull Requests (Solicitudes)' },
-    { type: 'body-instant', text: '  [6]  Vibe Coding + GitHub' },
-    { type: 'body-instant', text: '  [7]  Flujo de Trabajo con GitHub' },
-    { type: 'body-instant', text: '  [8]  Supabase' },
-    { type: 'body-instant', text: '  [9]  Modelos de IA' },
-    { type: 'spacer' },
-    { type: 'tip', text: 'Escribe el número de la lección para ir directamente a ella.' },
-  ];
+  const cardsContainer = document.getElementById('module-cards');
+  cardsContainer.innerHTML = modules.map((mod, i) => {
+    const completed = getModuleCompletedCount(i, mod.lessons.length);
+    const total = mod.lessons.length;
+    return `
+      <div class="module-card fade-in" data-module="${i}">
+        <div class="module-card-icon ${mod.iconClass}">${mod.icon}</div>
+        <h3>${mod.title}</h3>
+        <p>${mod.description}</p>
+        <div class="module-card-meta">${completed}/${total} lecciones completadas</div>
+      </div>`;
+  }).join('');
 
-  await render(sections);
-}
-
-async function showHelp() {
-  clearTerminal();
-  const { renderLesson: render } = await import('./terminal.js');
-
-  const sections = [
-    { type: 'prompt', text: 'help' },
-    { type: 'heading', text: 'Comandos Disponibles' },
-    { type: 'spacer' },
-    { type: 'body-instant', text: '  next / n        →  Siguiente lección' },
-    { type: 'body-instant', text: '  prev / p        →  Lección anterior' },
-    { type: 'body-instant', text: '  menu / m        →  Ver todas las lecciones' },
-    { type: 'body-instant', text: '  help / h        →  Mostrar esta ayuda' },
-    { type: 'body-instant', text: '  progress        →  Ver tu progreso' },
-    { type: 'body-instant', text: '  0-9             →  Ir a una lección específica' },
-    { type: 'spacer' },
-    { type: 'tip', text: 'También puedes usar las flechas ◀ ▶ o hacer clic en la barra lateral.' },
-    { type: 'tip', text: 'Haz clic en cualquier parte o presiona Enter para saltar animaciones.' },
-  ];
-
-  await render(sections);
-}
-
-async function showProgress() {
-  clearTerminal();
-  const { renderLesson: render } = await import('./terminal.js');
-  const { getProgress, renderProgressBar } = await import('./progress.js');
-  const prog = getProgress();
-
-  const sections = [
-    { type: 'prompt', text: 'progress' },
-    { type: 'heading', text: 'Tu Progreso' },
-    { type: 'spacer' },
-    { type: 'highlight', text: `  ${renderProgressBar()}` },
-    { type: 'spacer' },
-    { type: 'body-instant', text: `  Lecciones completadas: ${prog.completed} de ${prog.total}` },
-    { type: 'spacer' },
-  ];
-
-  await render(sections);
-}
-
-// Inicialización
-function init() {
-  // Input bar
-  const input = document.getElementById('command-input');
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      const cmd = input.value;
-      input.value = '';
-      if (cmd.trim()) {
-        processCommand(cmd);
-      } else if (isAnimating()) {
-        requestSkip();
-      }
-    }
-  });
-
-  // Navigation buttons
-  document.getElementById('btn-prev').addEventListener('click', () => {
-    goToLesson(currentLesson - 1);
-  });
-
-  document.getElementById('btn-next').addEventListener('click', () => {
-    goToLesson(currentLesson + 1);
-  });
-
-  // Sidebar clicks
-  document.querySelectorAll('#lesson-list li').forEach(li => {
-    li.addEventListener('click', () => {
-      const id = parseInt(li.dataset.lesson);
-      goToLesson(id);
+  // Attach click handlers
+  cardsContainer.querySelectorAll('.module-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const idx = parseInt(card.dataset.module);
+      navigateTo(idx, 0);
     });
   });
 
-  // Sidebar toggle (mobile)
-  const sidebar = document.getElementById('sidebar');
-  const toggle = document.getElementById('sidebar-toggle');
-  toggle.addEventListener('click', () => {
-    sidebar.classList.toggle('open');
+  // Update sidebar to show nothing active
+  updateModuleTabs(-1);
+  updateSidebar(-1);
+}
+
+function renderLesson(moduleIndex, lessonIndex) {
+  document.getElementById('landing').classList.add('hidden');
+  document.getElementById('lesson-view').classList.remove('hidden');
+
+  const mod = modules[moduleIndex];
+  const lesson = mod.lessons[lessonIndex];
+
+  // Breadcrumb
+  document.getElementById('lesson-breadcrumb').textContent =
+    `${mod.title} — Leccion ${lessonIndex + 1} de ${mod.lessons.length}`;
+
+  // Title
+  document.getElementById('lesson-title').textContent = lesson.title;
+
+  // Body
+  const body = document.getElementById('lesson-body');
+  body.innerHTML = renderSections(lesson.sections);
+  body.classList.add('fade-in');
+  attachQuizHandlers(body);
+
+  // Scroll to top
+  document.getElementById('content').scrollTop = 0;
+
+  // Navigation buttons
+  document.getElementById('btn-prev').disabled = !canGoPrev();
+  document.getElementById('btn-next').disabled = !canGoNext();
+
+  // Mark as complete
+  markComplete(moduleIndex, lessonIndex);
+
+  // Update UI
+  updateModuleTabs(moduleIndex);
+  updateSidebar(moduleIndex);
+  updateProgressUI(getTotalLessons());
+
+  // Remove animation class after it plays
+  setTimeout(() => body.classList.remove('fade-in'), 400);
+}
+
+function updateModuleTabs(activeModule) {
+  document.querySelectorAll('#module-tabs .tab').forEach(tab => {
+    const idx = parseInt(tab.dataset.module);
+    tab.classList.toggle('active', idx === activeModule);
   });
+}
 
-  // Click terminal to skip animation
-  document.getElementById('terminal').addEventListener('click', () => {
-    if (isAnimating()) {
-      requestSkip();
-    }
+function updateSidebar(moduleIndex) {
+  const list = document.getElementById('lesson-list');
+  const titleEl = document.getElementById('sidebar-module-title');
+  const state = getCurrentState();
+
+  if (moduleIndex < 0 || moduleIndex >= modules.length) {
+    titleEl.textContent = 'Modulos';
+    list.innerHTML = modules.map((mod, i) =>
+      `<li data-module="${i}" class="module-link">
+        <span class="lesson-number"><span class="number-text">${i + 1}</span></span>
+        <span>${mod.title}</span>
+      </li>`
+    ).join('');
+
+    list.querySelectorAll('li').forEach(li => {
+      li.addEventListener('click', () => {
+        navigateTo(parseInt(li.dataset.module), 0);
+      });
+    });
+    return;
+  }
+
+  const mod = modules[moduleIndex];
+  titleEl.textContent = mod.title;
+
+  list.innerHTML = mod.lessons.map((lesson, i) => {
+    const isActive = state.module === moduleIndex && state.lesson === i;
+    const isDone = isComplete(moduleIndex, i);
+    let cls = '';
+    if (isActive) cls = 'active';
+    else if (isDone) cls = 'completed';
+
+    return `
+      <li data-module="${moduleIndex}" data-lesson="${i}" class="${cls}">
+        <span class="lesson-number">
+          <span class="number-text">${i + 1}</span>
+          <svg class="check-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="white" stroke-width="2"><polyline points="3,7 6,10 11,4"/></svg>
+        </span>
+        <span>${lesson.title}</span>
+      </li>`;
+  }).join('');
+
+  list.querySelectorAll('li').forEach(li => {
+    li.addEventListener('click', () => {
+      const m = parseInt(li.dataset.module);
+      const l = parseInt(li.dataset.lesson);
+      navigateTo(m, l);
+    });
   });
+}
 
-  // Keyboard shortcuts
-  document.addEventListener('keydown', (e) => {
-    if (document.activeElement === input) return;
+function handleNavigate(moduleIndex, lessonIndex) {
+  if (moduleIndex < 0) {
+    renderLanding();
+  } else {
+    renderLesson(moduleIndex, lessonIndex);
+  }
+  // Close mobile sidebar
+  document.getElementById('sidebar').classList.remove('open');
+}
 
-    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+function init() {
+  loadModules().then(() => {
+    initProgress();
+    updateProgressUI(getTotalLessons());
+    initRouter(modules, handleNavigate);
+
+    // Module tabs
+    document.querySelectorAll('#module-tabs .tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const idx = parseInt(tab.dataset.module);
+        navigateTo(idx, 0);
+      });
+    });
+
+    // Nav buttons
+    document.getElementById('btn-prev').addEventListener('click', prevLesson);
+    document.getElementById('btn-next').addEventListener('click', nextLesson);
+
+    // Logo → landing
+    document.getElementById('logo').addEventListener('click', (e) => {
       e.preventDefault();
-      goToLesson(currentLesson + 1);
-    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-      e.preventDefault();
-      goToLesson(currentLesson - 1);
-    } else if (e.key === 'Escape') {
-      if (isAnimating()) requestSkip();
-    }
+      showLanding();
+    });
+
+    // Mobile menu toggle
+    const sidebar = document.getElementById('sidebar');
+    document.getElementById('menu-toggle').addEventListener('click', () => {
+      sidebar.classList.toggle('open');
+    });
+    document.getElementById('sidebar-overlay').addEventListener('click', () => {
+      sidebar.classList.remove('open');
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.key === 'ArrowRight') { e.preventDefault(); nextLesson(); }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); prevLesson(); }
+    });
+
+    // Hash change
+    window.addEventListener('hashchange', () => {
+      const hash = window.location.hash.slice(1);
+      if (!hash) {
+        showLanding();
+        return;
+      }
+      const [mod, les] = hash.split('/').map(Number);
+      if (!isNaN(mod) && !isNaN(les)) {
+        navigateTo(mod, les);
+      }
+    });
   });
-
-  // Initialize progress display
-  updateProgressDisplay();
-  updateSidebarChecks();
-
-  // Load first lesson
-  goToLesson(0);
 }
 
 document.addEventListener('DOMContentLoaded', init);
