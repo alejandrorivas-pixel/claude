@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Magno — Aprende GitHub, Supabase & AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <!-- Header -->
+  <header id="header">
+    <div class="header-left">
+      <button id="menu-toggle" class="icon-btn" aria-label="Toggle menu">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="5" x2="17" y2="5"/>
+          <line x1="3" y1="10" x2="17" y2="10"/>
+          <line x1="3" y1="15" x2="17" y2="15"/>
+        </svg>
+      </button>
+      <a href="#" class="logo" id="logo">
+        <span class="logo-icon">M</span>
+        <span class="logo-text">Magno</span>
+      </a>
+    </div>
+    <nav class="header-tabs" id="module-tabs">
+      <button class="tab active" data-module="0">GitHub</button>
+      <button class="tab" data-module="1">Supabase</button>
+      <button class="tab" data-module="2">AI Models</button>
+    </nav>
+    <div class="header-right">
+      <span class="progress-label" id="header-progress">0/18</span>
+    </div>
+  </header>
+
+  <div id="app-layout">
+    <!-- Sidebar -->
+    <aside id="sidebar">
+      <div class="sidebar-module-title" id="sidebar-module-title">GitHub</div>
+      <ul id="lesson-list"></ul>
+    </aside>
+
+    <!-- Overlay for mobile sidebar -->
+    <div id="sidebar-overlay"></div>
+
+    <!-- Main Content -->
+    <main id="content">
+      <!-- Landing page (shown by default) -->
+      <div id="landing" class="landing">
+        <div class="landing-hero">
+          <h1>Bienvenido a <span class="text-accent">Magno</span></h1>
+          <p class="landing-subtitle">Tu guia interactiva para entender las herramientas del vibe coding. Sin codigo, sin jerga innecesaria — solo lo que necesitas saber.</p>
+        </div>
+        <div class="module-cards" id="module-cards"></div>
+      </div>
+
+      <!-- Lesson view (hidden by default) -->
+      <div id="lesson-view" class="lesson-view hidden">
+        <div class="lesson-header">
+          <span class="lesson-breadcrumb" id="lesson-breadcrumb"></span>
+          <h2 class="lesson-title" id="lesson-title"></h2>
+        </div>
+        <div class="lesson-body" id="lesson-body"></div>
+        <div class="lesson-nav">
+          <button class="btn btn-secondary" id="btn-prev">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="10,2 4,8 10,14"/></svg>
+            Anterior
+          </button>
+          <button class="btn btn-primary" id="btn-next">
+            Siguiente
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6,2 12,8 6,14"/></svg>
+          </button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Footer -->
+  <footer id="footer">
+    <div class="progress-bar-container">
+      <div class="progress-bar" id="progress-bar"></div>
+    </div>
+    <span class="progress-text" id="progress-text">0 de 18 lecciones completadas</span>
+  </footer>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
